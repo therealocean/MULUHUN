@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+
 const BACKEND = 'http://127.0.0.1:8080';
 
 const LANG_META: Record<string, {
@@ -51,8 +51,8 @@ const LANG_META: Record<string, {
   },
 };
 
-// ─── Voice Command Maps ───────────────────────────────────────────────────────
-// Each command maps to an action string. We check if any keyword appears in
+//  (Voice Command Maps)
+// Each command maps to an action string. Check if any keyword appears in
 // the transcribed text (in native language OR english fallback).
 const COMMANDS = {
   compose:   ['kọ ifiranṣẹ','kọ','rubuta saƙo','rubuta','dee ozi','dee','compose','write','new email','new message'],
@@ -66,15 +66,86 @@ const COMMANDS = {
   stop:      ['dáwọ dúró','tsaya','kwụsị','stop','stop reading','quiet'],
 };
 
+// Number words in all three languages + English
+const NUMBER_WORDS: Record<string, number> = {
+  // English
+  'one':1,'two':2,'three':3,'four':4,'five':5,
+  'six':6,'seven':7,'eight':8,'nine':9,'ten':10,
+  'eleven':11,'twelve':12,'thirteen':13,'fourteen':14,'fifteen':15,
+  // Yoruba
+  'ọkan':1,'ẹjì':2,'ẹta':3,'ẹrin':4,'àrún':5,
+  'ẹfà':6,'èje':7,'ẹjọ':8,'ẹsàn':9,'ẹwà':10,
+  // Hausa
+  'ɗaya':1,'biyu':2,'uku':3,'huɗu':4,'biyar':5,
+  'shida':6,'bakwai':7,'takwas':8,'tara':9,'goma':10,
+  // Igbo
+  'otu':1,'abụọ':2,'atọ':3,'anọ':4,'ise':5,
+  'isii':6,'asaa':7,'asatọ':8,'itoolu':9,'iri':10,
+};
+
+function extractNumber(text: string): number | null {
+  const t = text.toLowerCase().trim();
+  // Direct digit
+  const digitMatch = t.match(/(\d+)/);
+  if (digitMatch) return parseInt(digitMatch[1]);
+  // Number word
+  for (const [word, num] of Object.entries(NUMBER_WORDS)) {
+    if (t.includes(word)) return num;
+  }
+  return null;
+}
+
 function matchCommand(text: string): string | null {
   const t = text.toLowerCase();
+  // Check number first — user saying a number opens that email
+  if (extractNumber(t) !== null) return 'openByNumber';
   for (const [cmd, keywords] of Object.entries(COMMANDS)) {
     if (keywords.some(k => t.includes(k))) return cmd;
   }
   return null;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// (Inbox announcement helpers)
+function buildInboxAnnouncement(emails: Email[], language: string): string {
+  const unread  = emails.filter(e => !e.is_read).length;
+  const total   = emails.length;
+
+  const unreadPhrase: Record<string, string> = {
+    yoruba: unread === 0
+      ? `O ni ifiranṣẹ ${total} lapapọ, ko si ifiranṣẹ tuntun.`
+      : `O ni ifiranṣẹ tuntun ${unread}. Apapọ ifiranṣẹ ${total}.`,
+    hausa: unread === 0
+      ? `Kana da saƙo ${total} gaba ɗaya, babu sabon saƙo.`
+      : `Kana da sabon saƙo ${unread}. Jimlar saƙo ${total}.`,
+    igbo: unread === 0
+      ? `Ị nwere ozi ${total} n'ozuzu, enweghị ozi ọhụrụ.`
+      : `Ị nwere ozi ọhụrụ ${unread}. Ozi n'ozuzu ${total}.`,
+  };
+
+  // Build email list announcement: "Email 1: from John. Subject: Meeting"
+  const listLines = emails.slice(0, 5).map((em, i) => {
+    const num = i + 1;
+    const from = em.from_name || em.from_address;
+    const subj = em.subject_native || em.subject;
+    if (language === 'yoruba') return `Ifiranṣẹ ${num}: lati ọdọ ${from}. Koko: ${subj}.`;
+    if (language === 'hausa')  return `Saƙo ${num}: daga ${from}. Taken: ${subj}.`;
+    return `Ozi ${num}: si ${from}. Isiokwu: ${subj}.`;
+  });
+
+  const openPrompt: Record<string, string> = {
+    yoruba: 'Sọ nọmba lati ṣii ifiranṣẹ.',
+    hausa:  'Faɗi lamba don buɗe saƙo.',
+    igbo:   'Kwuo nọmba iji mepee ozi.',
+  };
+
+  return [
+    unreadPhrase[language] || unreadPhrase.yoruba,
+    ...listLines,
+    openPrompt[language] || openPrompt.yoruba,
+  ].join(' ');
+}
+
+// (Types)
 type Screen = 'onboard' | 'inbox' | 'read' | 'compose' | 'reply';
 type RecordStage =
   | 'idle' | 'greeting' | 'listening_lang' | 'processing_lang' | 'confirm_lang'
@@ -87,7 +158,7 @@ interface Email {
   date: string; body_english: string; body_native: string; is_read: boolean;
 }
 
-// ─── Speak helper ─────────────────────────────────────────────────────────────
+// (Speak helper)
 function speak(text: string, lang: string, onEnd?: () => void) {
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
@@ -96,7 +167,7 @@ function speak(text: string, lang: string, onEnd?: () => void) {
   window.speechSynthesis.speak(u);
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// (Styles)
 const PAGE: React.CSSProperties = {
   fontFamily: "'Cormorant Garamond', 'Palatino Linotype', Georgia, serif",
   background: '#080c14', minHeight: '100vh', color: '#e8e4dc',
@@ -121,7 +192,7 @@ const btn = (bg = '#1e40af', extra: React.CSSProperties = {}): React.CSSProperti
   fontSize: '1rem', letterSpacing: '0.06em', transition: 'opacity 0.2s', ...extra,
 });
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
+// (Main App)
 export default function Home() {
   // Core state
   const [screen, setScreen]             = useState<Screen>('onboard');
@@ -166,7 +237,7 @@ export default function Home() {
   useEffect(() => { activeIndexRef.current = activeEmailIndex; }, [activeEmailIndex]);
   useEffect(() => { languageRef.current = language; }, [language]);
 
-  // ── Recording (for message composition) ───────────────────────────────────
+  // (Recording (for message composition))
   const startRecording = useCallback(async (secs: number, onStop: (b: Blob) => void) => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -186,7 +257,7 @@ export default function Home() {
     }, 1000);
   }, []);
 
-  // ── Inbox fetch ────────────────────────────────────────────────────────────
+  // (Inbox fetch)
   const fetchInbox = useCallback(async (lang: string) => {
     setLoadingInbox(true);
     try {
@@ -201,7 +272,19 @@ export default function Home() {
     if (screen === 'inbox' && language) fetchInbox(language);
   }, [screen, language, fetchInbox]);
 
-  // ── Open email ─────────────────────────────────────────────────────────────
+  // Auto-announce inbox when emails finish loading
+  useEffect(() => {
+    if (screen === 'inbox' && !loadingInbox && emails.length > 0 && language) {
+      const announcement = buildInboxAnnouncement(emails, language);
+      const meta = LANG_META[language];
+      // Small delay so the screen renders first
+      setTimeout(() => speak(announcement, meta.bcp47), 600);
+    }
+  }, [loadingInbox, screen]);
+
+
+
+  // (Open email)
   const openEmail = useCallback((em: Email, index: number) => {
     setActiveEmail(em);
     setActiveEmailIndex(index);
@@ -216,7 +299,7 @@ export default function Home() {
     speak(em.sender_intro_native || `Message from ${em.from_name}`, LANG_META[language]?.bcp47 || 'en-NG');
   }, [language]);
 
-  // ── TTS helpers ────────────────────────────────────────────────────────────
+  // (TTS helpers)
   const readAloud = useCallback((em: Email) => {
     setIsSpeaking(true);
     const meta = LANG_META[language];
@@ -226,7 +309,7 @@ export default function Home() {
 
   const stopSpeaking = () => { window.speechSynthesis.cancel(); setIsSpeaking(false); };
 
-  // ── Compose helpers ────────────────────────────────────────────────────────
+  // (Compose helpers)
   const startCompose = useCallback((reply = false, em?: Email) => {
     setIsReply(reply);
     setNativeText(''); setTranslation(''); setErrorMsg(''); setComposeStage('idle');
@@ -296,12 +379,12 @@ export default function Home() {
     setScreen('inbox');
   };
 
-  // ── VOICE COMMAND ENGINE ───────────────────────────────────────────────────
+  // (VOICE COMMAND ENGINE)
   // Activated by: tap anywhere on screen OR keypress anywhere
   // Records 3s of audio → sends to /set-language endpoint (reuses Whisper base)
   // → matches against COMMANDS map → executes action
 
-  const executeCommand = useCallback((cmd: string) => {
+  const executeCommand = useCallback((cmd: string, heard = '') => {
     const lang = languageRef.current;
     const meta = LANG_META[lang];
     const currentScreen = screenRef.current;
@@ -388,6 +471,33 @@ export default function Home() {
         }
         break;
 
+      case 'openByNumber': {
+        const num = extractNumber(heard || '');
+        if (num !== null) {
+          const idx = num - 1;  // 1-based → 0-based
+          const list = emailsRef.current;
+          if (idx >= 0 && idx < list.length) {
+            const em = list[idx];
+            speak(
+              language === 'yoruba' ? `Ṣiṣi ifiranṣẹ ${num}` :
+              language === 'hausa'  ? `Buɗe saƙo ${num}` :
+              `Mepee ozi ${num}`,
+              LANG_META[language]?.bcp47 || 'en-NG',
+              () => openEmail(em, idx)
+            );
+          } else {
+            const meta = LANG_META[language];
+            speak(
+              language === 'yoruba' ? `Ko si ifiranṣẹ ${num}` :
+              language === 'hausa'  ? `Babu saƙo ${num}` :
+              `Enweghị ozi ${num}`,
+              meta.bcp47
+            );
+          }
+        }
+        break;
+      }
+
       case 'stop':
         stopSpeaking();
         break;
@@ -446,7 +556,7 @@ export default function Home() {
 
           const cmd = matchCommand(heard);
           if (cmd) {
-            executeCommand(cmd);
+            executeCommand(cmd, heard);
           } else {
             const meta = LANG_META[languageRef.current];
             setCmdFeedback(meta.cmdNotUnderstood);
@@ -471,7 +581,7 @@ export default function Home() {
     }
   }, [cmdState, executeCommand]);
 
-  // ── Global tap + keypress listener (active after language is set) ──────────
+  // (Global tap + keypress listener (active after language is set))
   useEffect(() => {
     if (!language) return;
 
@@ -486,7 +596,7 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [language, startCommandListening]);
 
-  // ── Onboarding: language selection ────────────────────────────────────────
+  // (Onboarding: language selection)
   const handleTap = useCallback(async () => {
     if (composeStage !== 'idle') return;
     setComposeStage('greeting');
@@ -524,7 +634,7 @@ export default function Home() {
     }
   }, []);
 
-  // ─── Floating Command Button (shown on all post-onboard screens) ───────────
+  // (Floating Command Button (shown on all post-onboard screens))
   const FloatingMic = () => {
     if (screen === 'onboard' || !language) return null;
     const colors = {
@@ -555,7 +665,7 @@ export default function Home() {
     );
   };
 
-  // ── Command feedback toast ─────────────────────────────────────────────────
+  // (Command feedback toast)
   const CmdToast = () => {
     if (!cmdFeedback) return null;
     return (
@@ -573,9 +683,9 @@ export default function Home() {
     );
   };
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   // ONBOARD
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   if (screen === 'onboard') return (
     <main onClick={handleTap} style={{ ...PAGE, display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', padding: '2rem', position: 'relative' }}>
@@ -643,9 +753,9 @@ export default function Home() {
     </main>
   );
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   // INBOX
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   if (screen === 'inbox') return (
     <main onClick={startCommandListening} style={{ ...PAGE, display: 'flex', flexDirection: 'column', cursor: 'default' }}>
       <header style={{ padding: '1.4rem 1.5rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -668,10 +778,10 @@ export default function Home() {
         <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>🎙️</span>
         <span style={{ fontSize: '0.72rem', color: '#4b5563', letterSpacing: '0.05em' }}>
           {language === 'yoruba'
-            ? `Tẹ ibikibi · "kọ ifiranṣẹ" · "ka ifiranṣẹ" · "atẹle"`
+            ? `Sọ nọmba lati ṣii · "kọ ifiranṣẹ" · "atẹle"`
             : language === 'hausa'
-            ? `Taɓa ko'ina · "rubuta saƙo" · "karanta saƙo" · "na gaba"`
-            : `Kụọ ebe ọ bụla · "dee ozi" · "gụọ ozi" · "nke ọzọ"`}
+            ? `Faɗi lamba don buɗe · "rubuta saƙo" · "na gaba"`
+            : `Kwuo nọmba iji mepee · "dee ozi" · "nke ọzọ"`}
         </span>
       </div>
 
@@ -694,10 +804,21 @@ export default function Home() {
                 border: `1px solid ${em.is_read ? 'rgba(255,255,255,0.07)' : 'rgba(99,102,241,0.4)'}`,
                 background: em.is_read ? 'rgba(255,255,255,0.02)' : 'rgba(99,102,241,0.07)',
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontWeight: em.is_read ? 400 : 700, color: em.is_read ? '#6b7280' : '#e8e4dc', fontSize: '0.92rem' }}>
-                    {em.from_name || em.from_address}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {/* Voice number badge */}
+                    <span style={{
+                      minWidth: 28, height: 28, borderRadius: '50%',
+                      background: em.is_read ? 'rgba(255,255,255,0.06)' : 'rgba(99,102,241,0.4)',
+                      color: em.is_read ? '#4b5563' : '#c4b5fd',
+                      fontSize: '0.78rem', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>{idx + 1}</span>
+                    <span style={{ fontWeight: em.is_read ? 400 : 700, color: em.is_read ? '#6b7280' : '#e8e4dc', fontSize: '0.92rem' }}>
+                      {em.from_name || em.from_address}
+                    </span>
+                  </div>
                   <span style={{ color: '#374151', fontSize: '0.72rem' }}>
                     {new Date(em.date).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })}
                   </span>
@@ -726,9 +847,9 @@ export default function Home() {
     </main>
   );
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   // READ EMAIL
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   if (screen === 'read' && activeEmail) return (
     <main onClick={startCommandListening} style={{ ...PAGE, display: 'flex', flexDirection: 'column', cursor: 'default' }}>
       <header style={{ padding: '1.2rem 1.4rem', borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -802,9 +923,9 @@ export default function Home() {
     </main>
   );
 
-  // ═══════════════════════════════════════════════════════════════════════════
+  // 
   // COMPOSE / REPLY
-  // ═══════════════════════════════════════════════════════════════════════════
+  //
   if (screen === 'compose' || screen === 'reply') {
     const meta = LANG_META[language];
     return (
