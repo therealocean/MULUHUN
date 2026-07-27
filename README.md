@@ -42,7 +42,7 @@
 
 ---
 
-## 🌍 Overview
+## Overview
 
 **MULUHUN** (derived from the word for *"voice"* across Yoruba, Hausa, and Igbo) is a full-stack web application that enables visually impaired Nigerians to compose, send, receive, and manage emails entirely through voice — in their mother tongue.
 
@@ -59,7 +59,7 @@ Incoming emails are fetched, translated to the user's language, and read aloud a
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - 🎙️ **Hands-free voice interface** — tap anywhere or press any key to activate the command mic
 - 🔊 **Automatic inbox announcement** — system reads unread count and email summaries aloud on load
@@ -72,11 +72,10 @@ Incoming emails are fetched, translated to the user's language, and read aloud a
 - ⚡ **Fuzzy command matching** — handles accented speech and transcription imperfections via difflib
 - 🗃️ **SQLite database** — zero-config local storage for user profiles and contacts
 - 🔐 **JWT authentication** — secure session management with bcrypt password hashing
-- 🎨 **Accessibility-first UI** — high-contrast dark theme, large touch targets, no colour-only cues
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -118,7 +117,7 @@ Incoming emails are fetched, translated to the user's language, and read aloud a
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology | Purpose |
 |---|---|---|
@@ -138,7 +137,7 @@ Incoming emails are fetched, translated to the user's language, and read aloud a
 
 ---
 
-## 🤖 AI Models
+## AI Models
 
 MULUHUN uses **two categories** of speech recognition, selected by task:
 
