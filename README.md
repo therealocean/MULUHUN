@@ -347,8 +347,8 @@ Each email in the response includes `subject_native`, `body_native`, and `sender
 MULUHUN/
 │
 ├── backend/
-│   ├── muluhun_backend_v4.py     # Main FastAPI application
-│   ├── muluhun.db                # SQLite database (auto-created on first run)
+│   ├── main.py     # Main FastAPI application
+│   ├── muluhun.db                # SQLite database
 │   ├── .env                      # Environment variables (not committed)
 │   ├── .env.example              # Environment variable template
 │   └── requirements.txt          # Python dependencies
@@ -358,7 +358,6 @@ MULUHUN/
 │   │   └── page.tsx              # Main application (voice UI, 1,100+ lines)
 │   ├── public/
 │   ├── next.config.ts
-│   ├── tailwind.config.ts
 │   └── package.json
 │
 ├── docs/
