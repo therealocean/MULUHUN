@@ -48,7 +48,8 @@
 
 The system bridges two critical barriers simultaneously:
 
-| **Barrier** | How MULUHUN Solves It |
+| Barrier | How MULUHUN Solves It |
+|---|---|
 | **Visual dependency** | Fully voice-driven UI — no reading required |
 | **English-only interfaces** | Complete support for Yoruba, Hausa, and Igbo |
 
