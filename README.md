@@ -34,7 +34,6 @@
 - [Configuration](#-configuration)
 - [Running the System](#-running-the-system)
 - [API Reference](#-api-reference)
-- [Performance](#-performance)
 - [Project Structure](#-project-structure)
 - [Roadmap](#-roadmap)
 - [Attribution](#-attribution)
